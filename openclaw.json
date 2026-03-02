@@ -148,8 +148,8 @@
   "channels": {
     "feishu": {
       "enabled": true,
-      "appId": "cli_a92ff1ee9df85bcb",
-      "appSecret": "sqkD6YkaGnkUoupNrbHThb46QBTwyLGk"
+      "appId": "cli_a92ff2db6d399bdf",
+      "appSecret": "LxUTvm4oIQsH3RQxe95uiczXD8MdcJ8w"
     }
   },
   "gateway": {
