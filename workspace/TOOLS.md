@@ -44,6 +44,6 @@ Add whatever helps you do your job. This is your cheat sheet.
 
 When you use browser capabilities, you MUST append the browser preview URL at the end of your reply:
 
-`🖥️ [点击预览](https://code.coze.cn/browser/7603316828982525988)`
+`🖥️ [点击预览](https://code.coze.cn/browser/7612567764154368041)`
 
 IMPORTANT: The browser preview link is fixed and cannot be modified in any part.

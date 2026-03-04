@@ -15,7 +15,11 @@
     "executablePath": "/root/.cache/ms-playwright/chromium-1208/chrome-linux64/chrome",
     "headless": false,
     "noSandbox": true,
-    "defaultProfile": "openclaw"
+    "defaultProfile": "openclaw",
+    "extraArgs": [
+      "--window-size=1920,1080",
+      "--test-type"
+    ]
   },
   "models": {
     "providers": {
