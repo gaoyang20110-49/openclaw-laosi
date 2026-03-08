@@ -1,0 +1,49 @@
+{
+  "rules": [
+    {
+      "id": "rule_1",
+      "name": "开度变化检测",
+      "type": "open_level_change",
+      "threshold": 0.1,
+      "enabled": true,
+      "description": "检测开度前后变化是否超过阈值"
+    },
+    {
+      "id": "rule_2",
+      "name": "开度过高检测",
+      "type": "open_level_high",
+      "threshold": 90,
+      "enabled": false,
+      "description": "检测开度是否超过上限"
+    },
+    {
+      "id": "rule_3",
+      "name": "开度过低检测",
+      "type": "open_level_low",
+      "threshold": 10,
+      "enabled": false,
+      "description": "检测开度是否低于下限"
+    },
+    {
+      "id": "rule_4",
+      "name": "异常波动检测",
+      "type": "abnormal_fluctuation",
+      "sampleCount": 5,
+      "minChange": 0.5,
+      "maxCount": 3,
+      "enabled": false,
+      "description": "检测短时间内频繁波动"
+    },
+    {
+      "id": "rule_5",
+      "name": "数据中断检测",
+      "type": "no_data",
+      "maxMinutes": 5,
+      "enabled": false,
+      "description": "检测数据采集是否中断"
+    }
+  ],
+  "checkInterval": 60000,
+  "enabled": true,
+  "alertRetentionDays": 30
+}

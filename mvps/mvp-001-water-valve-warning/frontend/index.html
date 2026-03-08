@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>水系统阀门异常预警 - 仪表盘</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; }
+        .container { max-width: 1600px; margin: 0 auto; padding: 20px; }
+        
+        /* 头部 */
+        .header { background: linear-gradient(135deg, #1a73e8, #4285f4); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
+        .header h1 { font-size: 24px; margin-bottom: 8px; }
+        .header p { opacity: 0.9; font-size: 14px; }
+        
+        /* 统计卡片 */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .stat-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .stat-card .label { color: #666; font-size: 13px; margin-bottom: 8px; }
+        .stat-card .value { font-size: 28px; font-weight: bold; }
+        .stat-card.warning .value { color: #f59e0b; }
+        .stat-card.critical .value { color: #ef4444; }
+        .stat-card.success .value { color: #059669; }
+        
+        /* 标签页 */
+        .tabs { display: flex; gap: 8px; margin-bottom: 20px; background: white; padding: 8px; border-radius: 8px; overflow-x: auto; }
+        .tab { padding: 10px 20px; border: none; background: none; cursor: pointer; border-radius: 6px; font-size: 14px; white-space: nowrap; transition: all 0.2s; }
+        .tab.active { background: #1a73e8; color: white; }
+        
+        /* 内容区域 */
+        .content { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); min-height: 500px; }
+        
+        /* 表格 */
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f9fafb; font-weight: 600; color: #666; font-size: 13px; white-space: nowrap; }
+        tr:hover { background: #f9fafb; }
+        
+        /* 标签 */
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+        .badge.warning { background: #fef3c7; color: #d97706; }
+        .badge.critical { background: #fee2e2; color: #dc2626; }
+        .badge.success { background: #d1fae5; color: #059669; }
+        .badge.info { background: #dbeafe; color: #2563eb; }
+        .badge.pending { background: #fef3c7; color: #d97706; }
+        .badge.processing { background: #dbeafe; color: #2563eb; }
+        .badge.resolved { background: #d1fae5; color: #059669; }
+        
+        /* 按钮 */
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+        .btn-primary { background: #1a73e8; color: white; }
+        .btn-primary:hover { background: #1557b0; }
+        .btn-secondary { background: #f3f4f6; color: #374151; }
+        .btn-secondary:hover { background: #e5e7eb; }
+        .btn-danger { background: #fee2e2; color: #dc2626; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+        
+        /* 表单 */
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; margin-bottom: 6px; font-weight: 500; color: #666; font-size: 14px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        .form-group textarea { font-family: monospace; resize: vertical; }
+        .form-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+        .form-row-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        
+        /* 卡片 */
+        .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; }
+        .card h3 { margin-bottom: 16px; font-size: 16px; }
+        
+        /* 位置卡片 */
+        .location-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+        .location-card { padding: 16px; background: #f9fafb; border-radius: 8px; border-left: 4px solid #1a73e8; }
+        .location-card .name { font-weight: 600; margin-bottom: 12px; }
+        .location-card .stats { display: flex; gap: 20px; font-size: 13px; color: #666; }
+        .location-card .stats span { display: flex; align-items: center; gap: 4px; }
+        
+        /* 弹窗 */
+        .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; border-radius: 12px; padding: 24px; max-width: 800px; width: 95%; max-height: 90vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid #eee; }
+        .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
+        
+        /* 详情网格 */
+        .detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .detail-item { padding: 12px; background: #f9fafb; border-radius: 8px; }
+        .detail-item .label { font-size: 12px; color: #666; margin-bottom: 4px; }
+        .detail-item .value { font-size: 16px; font-weight: 500; }
+        
+        /* 图表 */
+        .chart-container { height: 350px; margin-bottom: 20px; }
+        
+        /* 规则卡片 */
+        .rule-card { padding: 16px; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 12px; }
+        .rule-card.disabled { opacity: 0.6; }
+        .rule-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .rule-name { font-weight: 600; }
+        .rule-desc { font-size: 13px; color: #666; }
+        
+        /* 开关 */
+        .switch { position: relative; width: 44px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .switch-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #ccc; border-radius: 24px; transition: 0.3s; }
+        .switch-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
+        .switch input:checked + .switch-slider { background: #1a73e8; }
+        .switch input:checked + .switch-slider:before { transform: translateX(20px); }
+        
+        /* 工具栏 */
+        .toolbar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+        .search-input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; width: 200px; }
+        
+        /* 加载 */
+        .loading { text-align: center; padding: 40px; color: #999; }
+        .empty { text-align: center; padding: 60px 20px; color: #999; }
+        .empty-icon { font-size: 48px; margin-bottom: 16px; }
+        
+        /* 趋势图区域 */
+        .trend-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; }
+        
+        @media (max-width: 768px) {
+            .form-row, .form-row-3, .detail-grid { grid-template-columns: 1fr; }
+            .location-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="container">
+        <!-- 头部 -->
+        <div class="header">
+            <h1>💧 水系统阀门异常预警</h1>
+            <p>IDC 数据中心基础设施监控 · {{ currentTime }}</p>
+        </div>
+        
+        <!-- 统计卡片 -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="label">监控阀门</div>
+                <div class="value">{{ stats.totalValves || 0 }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">设备数量</div>
+                <div class="value">{{ stats.totalDevices || 0 }}</div>
+            </div>
+            <div class="stat-card warning">
+                <div class="label">预警总数</div>
+                <div class="value">{{ stats.totalAlerts || 0 }}</div>
+            </div>
+            <div class="stat-card critical">
+                <div class="label">严重预警</div>
+                <div class="value">{{ stats.criticalAlerts || 0 }}</div>
+            </div>
+            <div class="stat-card warning">
+                <div class="label">待处理</div>
+                <div class="value">{{ stats.pendingAlerts || 0 }}</div>
+            </div>
+            <div class="stat-card success">
+                <div class="label">系统状态</div>
+                <div class="value" style="font-size: 16px;">● 正常</div>
+            </div>
+        </div>
+        
+        <!-- 功能标签页 -->
+        <div class="tabs">
+            <button class="tab" :class="{ active: activeTab === 'dashboard' }" @click="activeTab = 'dashboard'">📊 仪表盘</button>
+            <button class="tab" :class="{ active: activeTab === 'alerts' }" @click="activeTab = 'alerts'">⚠️ 预警列表</button>
+            <button class="tab" :class="{ active: activeTab === 'devices' }" @click="activeTab = 'devices'">🔧 设备管理</button>
+            <button class="tab" :class="{ active: activeTab === 'trend' }" @click="activeTab = 'trend'">📈 趋势分析</button>
+            <button class="tab" :class="{ active: activeTab === 'config' }" @click="activeTab = 'config'">⚙️ 预警配置</button>
+            <button class="tab" :class="{ active: activeTab === 'import' }" @click="activeTab = 'import'">📥 数据导入</button>
+        </div>
+        
+        <!-- 内容区域 -->
+        <div class="content">
+            <!-- 仪表盘 -->
+            <div v-if="activeTab === 'dashboard'">
+                <h3 style="margin-bottom: 16px;">📊 位置分布统计</h3>
+                <div class="location-grid" v-if="stats.locationStats && stats.locationStats.length">
+                    <div class="location-card" v-for="loc in stats.locationStats" :key="loc.room">
+                        <div class="name">{{ loc.room }}</div>
+                        <div class="stats">
+                            <span>🔧 设备: {{ loc.deviceCount }}</span>
+                            <span>⚠️ 预警: {{ loc.totalAlerts }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="empty" v-else>
+                    <div class="empty-icon">📊</div>
+                    <p>暂无数据，请先导入阀门数据</p>
+                </div>
+            </div>
+            
+            <!-- 预警列表 -->
+            <div v-if="activeTab === 'alerts'">
+                <div class="toolbar">
+                    <input type="text" class="search-input" v-model="alertSearch" placeholder="搜索设备名称..." @input="filterAlerts">
+                    <select v-model="alertFilterLevel" @change="filterAlerts" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                        <option value="">全部级别</option>
+                        <option value="warning">警告</option>
+                        <option value="critical">严重</option>
+                    </select>
+                    <select v-model="alertFilterStatus" @change="filterAlerts" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                        <option value="">全部状态</option>
+                        <option value="pending">待处理</option>
+                        <option value="processing">处理中</option>
+                        <option value="resolved">已解决</option>
+                    </select>
+                    <button class="btn btn-secondary" @click="refreshAlerts">🔄 刷新</button>
+                    <button class="btn btn-danger" @click="clearAlerts">🗑️ 清空</button>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>级别</th>
+                                <th>设备名称</th>
+                                <th>位置</th>
+                                <th>规则</th>
+                                <th>数值</th>
+                                <th>预警时间</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="alert in filteredAlerts" :key="alert.id">
+                                <td><span class="badge" :class="alert.level">{{ alert.level === 'critical' ? '严重' : '警告' }}</span></td>
+                                <td>{{ alert.deviceName }}</td>
+                                <td>{{ formatLocation(alert.location) }}</td>
+                                <td>{{ alert.ruleName || '-' }}</td>
+                                <td>{{ alert.diff || alert.currentValue || '-' }}</td>
+                                <td>{{ formatTime(alert.timestamp) }}</td>
+                                <td><span class="badge" :class="alert.status">{{ getStatusText(alert.status) }}</span></td>
+                                <td>
+                                    <button class="btn btn-primary btn-sm" @click="showAlertDetail(alert)">详情</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="empty" v-if="filteredAlerts.length === 0">
+                    <div class="empty-icon">✅</div>
+                    <p>暂无预警</p>
+                </div>
+            </div>
+            
+            <!-- 设备管理 -->
+            <div v-if="activeTab === 'devices'">
+                <div class="toolbar">
+                    <input type="text" class="search-input" v-model="deviceSearch" placeholder="搜索设备..." @input="filterDevices">
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>设备编号</th>
+                                <th>设备名称</th>
+                                <th>位置</th>
+                                <th>类型</th>
+                                <th>当前开度</th>
+                                <th>最新数据</th>
+                                <th>数据点数</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="device in filteredDevices" :key="device.deviceId">
+                                <td>{{ device.deviceId }}</td>
+                                <td>{{ device.deviceName }}</td>
+                                <td>{{ formatLocation(device.location) }}</td>
+                                <td>{{ device.deviceType }}</td>
+                                <td>{{ device.latestOpenLevel }}%</td>
+                                <td>{{ formatTime(device.latestTimestamp) }}</td>
+                                <td>{{ device.dataPoints }}</td>
+                                <td>
+                                    <button class="btn btn-primary btn-sm" @click="showDeviceTrend(device)">趋势</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="empty" v-if="filteredDevices.length === 0">
+                    <div class="empty-icon">🔧</div>
+                    <p>暂无设备数据</p>
+                </div>
+            </div>
+            
+            <!-- 趋势分析 -->
+            <div v-if="activeTab === 'trend'">
+                <div class="card">
+                    <h3>📈 设备开度趋势</h3>
+                    <div class="form-row" style="margin-bottom: 16px;">
+                        <div class="form-group">
+                            <label>选择设备</label>
+                            <select v-model="trendDeviceId" @change="loadTrendData">
+                                <option value="">请选择设备</option>
+                                <option v-for="d in devices" :key="d.deviceId" :value="d.deviceId">{{ d.deviceName }}</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>时间范围</label>
+                            <select v-model="trendHours" @change="loadTrendData">
+                                <option value="1">最近 1 小时</option>
+                                <option value="6">最近 6 小时</option>
+                                <option value="24">最近 24 小时</option>
+                                <option value="72">最近 3 天</option>
+                                <option value="168">最近 7 天</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="trendChart" class="chart-container"></div>
+                </div>
+            </div>
+            
+            <!-- 预警配置 -->
+            <div v-if="activeTab === 'config'">
+                <div class="card">
+                    <h3>⚙️ 全局设置</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" v-model="globalConfig.enabled"> 启用预警
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>预警数据保留天数</label>
+                            <input type="number" v-model="globalConfig.alertRetentionDays" min="1" max="365">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" @click="saveGlobalConfig">保存设置</button>
+                </div>
+                
+                <div class="card" style="margin-top: 20px;">
+                    <h3>📋 预警规则</h3>
+                    <div v-for="rule in configRules" :key="rule.id" class="rule-card" :class="{ disabled: !rule.enabled }">
+                        <div class="rule-header">
+                            <div>
+                                <div class="rule-name">{{ rule.name }}</div>
+                                <div class="rule-desc">{{ rule.description }}</div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" v-model="rule.enabled" @change="saveRule(rule)">
+                                <span class="switch-slider"></span>
+                            </label>
+                        </div>
+                        <div class="form-row-3" style="margin-top: 12px;">
+                            <div class="form-group">
+                                <label>阈值</label>
+                                <input type="number" v-model="rule.threshold" step="0.1" @change="saveRule(rule)">
+                            </div>
+                            <div class="form-group" v-if="rule.sampleCount">
+                                <label>采样次数</label>
+                                <input type="number" v-model="rule.sampleCount" @change="saveRule(rule)">
+                            </div>
+                            <div class="form-group" v-if="rule.maxMinutes">
+                                <label>最大中断(分钟)</label>
+                                <input type="number" v-model="rule.maxMinutes" @change="saveRule(rule)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 数据导入 -->
+            <div v-if="activeTab === 'import'">
+                <div class="card">
+                    <h3>📥 JSON 数据导入</h3>
+                    <div class="form-group">
+                        <label>粘贴 JSON 数据（数组格式）</label>
+                        <textarea v-model="importData" rows="12" placeholder='[{"deviceId": "V001", "deviceName": "阀门1", "location": {"room": "A栋", "floor": "1F"}, "openLevel": 50.5, "timestamp": "2024-01-01T00:00:00Z"}]'></textarea>
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-primary" @click="importDataSubmit">导入数据</button>
+                        <button class="btn btn-secondary" @click="importMode = 'append'">追加模式</button>
+                        <button class="btn btn-secondary" @click="importMode = 'replace'">替换模式</button>
+                    </div>
+                    <p style="margin-top: 12px; color: #666; font-size: 13px;">
+                        <span v-if="importMode === 'append'">当前模式：追加（保留现有数据）</span>
+                        <span v-else>当前模式：替换（清空现有数据）</span>
+                    </p>
+                </div>
+                
+                <div class="card" style="margin-top: 20px;">
+                    <h3>📤 数据示例</h3>
+                    <pre style="background: #f9fafb; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 12px;">{{ sampleData }}</pre>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 预警详情弹窗 -->
+        <div class="modal" v-if="selectedAlert" @click.self="selectedAlert = null">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>⚠️ 预警详情</h3>
+                    <button class="modal-close" @click="selectedAlert = null">&times;</button>
+                </div>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <div class="label">设备编号</div>
+                        <div class="value">{{ selectedAlert.deviceId }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="label">设备名称</div>
+                        <div class="value">{{ selectedAlert.deviceName }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="label">机房</div>
+                        <div class="value">{{ selectedAlert.location?.room || '未知' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="label">楼层</div>
+                        <div class="value">{{ selectedAlert.location?.floor || '未知' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="label">包间</div>
+                        <div class="value">{{ selectedAlert.location?.zone || '未知' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="label">设备类型</div>
+                        <div class="value">{{ selectedAlert.location?.deviceType || '未知' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="label">预警规则</div>
+                        <div class="value">{{ selectedAlert.ruleName || '-' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="label">预警级别</div>
+                        <div class="value"><span class="badge" :class="selectedAlert.level">{{ selectedAlert.level === 'critical' ? '严重' : '警告' }}</span></div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="label">当前值</div>
+                        <div class="value">{{ selectedAlert.currentValue || selectedAlert.diff || '-' }}%</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="label">变化量</div>
+                        <div class="value" style="color: #ef4444;">{{ selectedAlert.diff ? selectedAlert.diff + '%' : '-' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="label">阈值</div>
+                        <div class="value">{{ selectedAlert.threshold || '-' }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="label">状态</div>
+                        <div class="value"><span class="badge" :class="selectedAlert.status">{{ getStatusText(selectedAlert.status) }}</span></div>
+                    </div>
+                </div>
+                
+                <!-- 预警时刻的数据趋势 -->
+                <div class="trend-section" v-if="selectedAlert.history && selectedAlert.history.length > 0">
+                    <h4 style="margin-bottom: 12px;">📈 预警前后趋势</h4>
+                    <div id="alertTrendChart" class="chart-container"></div>
+                </div>
+                
+                <div style="margin-top: 20px; display: flex; gap: 12px;">
+                    <button class="btn btn-primary" v-if="selectedAlert.status !== 'resolved'" @click="resolveAlert(selectedAlert)">标记为已解决</button>
+                    <button class="btn btn-secondary" @click="selectedAlert = null">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted, nextTick } = Vue;
+        
+        createApp({
+            setup() {
+                const activeTab = ref('dashboard');
+                const currentTime = ref('');
+                const stats = ref({});
+                const alerts = ref([]);
+                const devices = ref([]);
+                const configRules = ref([]);
+                const globalConfig = ref({ enabled: true, alertRetentionDays: 30 });
+                
+                const alertSearch = ref('');
+                const alertFilterLevel = ref('');
+                const alertFilterStatus = ref('');
+                const filteredAlerts = ref([]);
+                
+                const deviceSearch = ref('');
+                const filteredDevices = ref([]);
+                
+                const importData = ref('');
+                const importMode = ref('append');
+                
+                const selectedAlert = ref(null);
+                const trendDeviceId = ref('');
+                const trendHours = ref('24');
+                const trendChart = ref(null);
+                const alertTrendChart = ref(null);
+                
+                const sampleData = JSON.stringify([
+                    {
+                        deviceId: "V001",
+                        deviceName: "冷水阀A1",
+                        location: { room: "A栋机房", floor: "1F", zone: "A1区", deviceType: "水阀" },
+                        openLevel: 45.5,
+                        timestamp: "2024-01-08T10:00:00+08:00"
+                    }
+                ], null, 2);
+                
+                const updateTime = () => { currentTime.value = new Date().toLocaleString('zh-CN'); };
+                const formatTime = (t) => t ? new Date(t).toLocaleString('zh-CN') : '-';
+                const formatLocation = (loc) => {
+                    if (!loc) return '-';
+                    const parts = [loc.room, loc.floor, loc.zone].filter(Boolean);
+                    return parts.join(' / ') || '-';
+                };
+                const getStatusText = (s) => ({ pending: '待处理', processing: '处理中', resolved: '已解决' }[s] || s);
+                
+                // 加载统计数据
+                const loadStats = async () => {
+                    try {
+                        const res = await axios.get('/api/dashboard/stats');
+                        if (res.data.success) stats.value = res.data.data;
+                    } catch (err) { console.error(err); }
+                };
+                
+                // 加载预警
+                const loadAlerts = async () => {
+                    try {
+                        const res = await axios.get('/api/alerts?limit=100');
+                        if (res.data.success) {
+                            alerts.value = res.data.data;
+                            filterAlerts();
+                        }
+                    } catch (err) { console.error(err); }
+                };
+                
+                const refreshAlerts = () => loadAlerts();
+                
+                const filterAlerts = () => {
+                    let result = alerts.value;
+                    if (alertSearch.value) {
+                        const q = alertSearch.value.toLowerCase();
+                        result = result.filter(a => (a.deviceName || '').toLowerCase().includes(q) || (a.deviceId || '').toLowerCase().includes(q));
+                    }
+                    if (alertFilterLevel.value) result = result.filter(a => a.level === alertFilterLevel.value);
+                    if (alertFilterStatus.value) result = result.filter(a => a.status === alertFilterStatus.value);
+                    filteredAlerts.value = result;
+                };
+                
+                // 加载设备
+                const loadDevices = async () => {
+                    try {
+                        const res = await axios.get('/api/devices');
+                        if (res.data.success) {
+                            devices.value = res.data.data;
+                            filterDevices();
+                        }
+                    } catch (err) { console.error(err); }
+                };
+                
+                const filterDevices = () => {
+                    if (!deviceSearch.value) {
+                        filteredDevices.value = devices.value;
+                        return;
+                    }
+                    const q = deviceSearch.value.toLowerCase();
+                    filteredDevices.value = devices.value.filter(d => 
+                        (d.deviceName || '').toLowerCase().includes(q) || 
+                        (d.deviceId || '').toLowerCase().includes(q)
+                    );
+                };
+                
+                // 加载配置
+                const loadConfig = async () => {
+                    try {
+                        const res = await axios.get('/api/config');
+                        if (res.data.success) {
+                            globalConfig.value = { enabled: res.data.data.enabled, alertRetentionDays: res.data.data.alertRetentionDays };
+                            configRules.value = res.data.data.rules || [];
+                        }
+                    } catch (err) { console.error(err); }
+                };
+                
+                const saveGlobalConfig = async () => {
+                    try {
+                        const config = { ...globalConfig.value, rules: configRules.value };
+                        await axios.post('/api/config', config);
+                        alert('保存成功');
+                    } catch (err) { alert('保存失败: ' + err.message); }
+                };
+                
+                const saveRule = async (rule) => {
+                    try {
+                        await axios.post('/api/config/rules', { rule });
+                    } catch (err) { console.error(err); }
+                };
+                
+                // 导入数据
+                const importDataSubmit = async () => {
+                    try {
+                        const data = JSON.parse(importData.value);
+                        const endpoint = importMode.value === 'replace' ? '/api/valves/import/replace' : '/api/valves/import';
+                        await axios.post(endpoint, { valves: Array.isArray(data) ? data : [data] });
+                        alert('导入成功');
+                        importData.value = '';
+                        loadStats();
+                        loadDevices();
+                        loadAlerts();
+                    } catch (err) { alert('导入失败: ' + err.message); }
+                };
+                
+                // 预警详情
+                const showAlertDetail = async (alert) => {
+                    try {
+                        const res = await axios.get('/api/alerts/' + alert.id);
+                        if (res.data.success) {
+                            selectedAlert.value = res.data.data;
+                            await nextTick();
+                            if (res.data.data.history && res.data.data.history.length > 0) {
+                                renderAlertTrendChart(res.data.data.history);
+                            }
+                        }
+                    } catch (err) { console.error(err); }
+                };
+                
+                const resolveAlert = async (alert) => {
+                    try {
+                        await axios.patch('/api/alerts/' + alert.id, { status: 'resolved' });
+                        alert.status = 'resolved';
+                        loadAlerts();
+                    } catch (err) { alert('操作失败: ' + err.message); }
+                };
+                
+                const clearAlerts = async () => {
+                    if (!confirm('确定清空所有预警？')) return;
+                    try {
+                        await axios.delete('/api/alerts');
+                        loadAlerts();
+                        loadStats();
+                    } catch (err) { alert('操作失败: ' + err.message); }
+                };
+                
+                // 趋势图
+                const showDeviceTrend = (device) => {
+                    trendDeviceId.value = device.deviceId;
+                    activeTab.value = 'trend';
+                    loadTrendData();
+                };
+                
+                const loadTrendData = async () => {
+                    if (!trendDeviceId.value) return;
+                    try {
+                        const res = await axios.get('/api/devices/' + trendDeviceId.value + '/history?hours=' + trendHours.value);
+                        if (res.data.success) {
+                            renderTrendChart(res.data.data);
+                        }
+                    } catch (err) { console.error(err); }
+                };
+                
+                const renderTrendChart = (data) => {
+                    const chartDom = document.getElementById('trendChart');
+                    if (!chartDom) return;
+                    if (trendChart.value) trendChart.value.dispose();
+                    
+                    const chart = echarts.init(chartDom);
+                    const times = data.map(d => new Date(d.timestamp).toLocaleTimeString('zh-CN'));
+                    const values = data.map(d => d.value);
+                    
+                    chart.setOption({
+                        tooltip: { trigger: 'axis' },
+                        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+                        xAxis: { type: 'category', data: times, boundaryGap: false },
+                        yAxis: { type: 'value', name: '开度 (%)', min: 0, max: 100 },
+                        series: [{ name: '开度', type: 'line', data: values, smooth: true, areaStyle: { opacity: 0.3 }, lineStyle: { width: 2 } }]
+                    });
+                    trendChart.value = chart;
+                };
+                
+                const renderAlertTrendChart = (history) => {
+                    const chartDom = document.getElementById('alertTrendChart');
+                    if (!chartDom) return;
+                    if (alertTrendChart.value) alertTrendChart.value.dispose();
+                    
+                    const chart = echarts.init(chartDom);
+                    const times = history.map(d => new Date(d.timestamp).toLocaleTimeString('zh-CN'));
+                    const values = history.map(d => d.openLevel);
+                    
+                    chart.setOption({
+                        tooltip: { trigger: 'axis' },
+                        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+                        xAxis: { type: 'category', data: times, boundaryGap: false },
+                        yAxis: { type: 'value', name: '开度 (%)', min: 0, max: 100 },
+                        series: [{ name: '开度', type: 'line', data: values, smooth: true, lineStyle: { width: 2 } }]
+                    });
+                    alertTrendChart.value = chart;
+                };
+                
+                onMounted(() => {
+                    updateTime();
+                    setInterval(updateTime, 1000);
+                    loadStats();
+                    loadAlerts();
+                    loadDevices();
+                    loadConfig();
+                });
+                
+                return {
+                    activeTab, currentTime, stats, alerts, devices, configRules, globalConfig,
+                    alertSearch, alertFilterLevel, alertFilterStatus, filteredAlerts,
+                    deviceSearch, filteredDevices,
+                    importData, importMode, sampleData,
+                    selectedAlert, trendDeviceId, trendHours,
+                    formatTime, formatLocation, getStatusText,
+                    loadStats, refreshAlerts, filterAlerts, filterDevices,
+                    loadConfig, saveGlobalConfig, saveRule,
+                    importDataSubmit, showAlertDetail, resolveAlert, clearAlerts,
+                    showDeviceTrend, loadTrendData
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
