@@ -1304,3 +1304,29 @@ def build_alert_message(
 #### T5-1 后端预警中心 API
 - **状态**：`[ ]`
 - **目标**：实现事件列表、事件详情、告警
+
+# UI设计规范 (v2.0)
+
+## 整体设计风格
+- **主题**: 深色渐变主题 + 玻璃态效果
+- **配色**: 紫色系主色调，配合渐变色
+- **视觉**: 现代化卡片设计 + 流畅动画
+
+## 配色方案
+- **主色**: 紫色渐变 (from-purple-600 to-blue-600)
+- **成功**: 绿色渐变 (from-green-500 to-emerald-500)
+- **警告**: 橙红渐变 (from-orange-500 to-red-500)
+- **信息**: 蓝青渐变 (from-blue-500 to-cyan-500)
+
+## 组件设计
+- **玻璃态卡片**: bg-white/95 backdrop-blur-xl + border-white/20
+- **渐变按钮**: bg-gradient-to-r + hover:scale-105
+- **状态标签**: px-3 py-1 rounded-full + 渐变背景
+- **数据卡片**: data-card + 渐变背景 + 图标装饰
+
+## 动画效果
+- fadeInUp: 页面加载动画
+- pulse-ring: 呼吸灯效果
+- float: 浮动动画
+- hover: scale-[1.02] + border-color 变化
+
